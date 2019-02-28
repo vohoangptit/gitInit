@@ -1,0 +1,60 @@
+<html>
+<head>
+	<title>Thong Tin Ung Vien</title>
+	<style>
+		h1 {
+		  color: blue;
+		  font-family: verdana;
+		  font-size: 200%;
+		  text-align:center
+		}
+		.form{
+		  margin: auto;
+		  width : 400px;
+		  
+		  font-family: courier;
+		  font-size: 160%;
+		  border-radius: 5px 5px 5px 5px;
+		}
+		.info{
+		vertical-align: middle;
+		}
+		.div-form{
+		text-align: left;
+		margin: 5px 0px 5px 5px;
+		}
+</style>
+</head>
+<body>
+<h1>THONG TIN HO SO UNG VIEN</h1>
+<div class = 'info'>
+	<form class ="form" method="post" action ="/application/createSheet" enctype="multipart/form-data">
+		<div class = "div-form">
+			<label> Ten : </label>
+			<input type ="text" name="ten" required/>
+		</div class = "div-form">
+		<div class = "div-form">
+			<label> Email : </label>
+			<input type ="text" name="email" required/>
+		</div>
+		<div class = "div-form">
+			<label> Link CV : </label>
+			<input type ="text" name="link_cv"required/>
+		</div>
+		<div class = "div-form">
+			<label> Upload CV : </label>
+			<input type ="file" name="cv" required/>
+		</div>
+		<div class = "div-form">
+			<label> Note : </label>
+			<input type ="text" name="note" required/>
+		</div>
+		<div style ="margin-top:15px; text-align:center">			
+			<button>SUBMIT</button>
+		</div>
+	</form>
+</div>
+</body>
+
+</html>
+
