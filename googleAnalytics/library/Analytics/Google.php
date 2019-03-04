@@ -18,12 +18,11 @@ class Google
         $client = new \Google_Client();
         $client->setAuthConfig(__DIR__ . '/../../client_secrets.json');
         $client->addScope([
+//            \Google_Service_Analytics::ANALYTICS_MANAGE_USERS,
+//            \Google_Service_Analytics::ANALYTICS_MANAGE_USERS_READONLY,
             \Google_Service_Analytics::ANALYTICS_EDIT,
             \Google_Service_Analytics::ANALYTICS_READONLY
-//            \Google_Service_Analytics::ANALYTICS_MANAGE_USERS,
-//            \Google_Service_Analytics::ANALYTICS_MANAGE_USERS_READONLY
         ]);
-        $client->setIncludeGrantedScopes(true);
         try {
             if (isset($_SESSION['access_token']) && $_SESSION['access_token']) {
                 // Set the access token on the client.
@@ -46,15 +45,26 @@ class Google
 
     function getAccount(){
         try {
-
             $account = $this->client->management_accountSummaries->listManagementAccountSummaries([
                 'start-index' => 1,
                 'max-results' => 100
             ]);
-            echo "<pre>";
-            print_r($account);
-            echo "</pre>";
-            exit();
+            return $accountId = $account->getItems();
+        } catch (\Google_Service_Exception $e) {
+            print 'There was an Analytics API service error '
+                . $e->getCode() . ':' . $e->getMessage();
+
+        }
+        catch (\Google_Exception $e) {
+            print 'There was a general API error '
+                . $e->getCode() . ':' . $e->getMessage();
+        }
+    }
+
+    function getLinkAccount($accountId){
+        try {
+            $account = $this->client->management_accountUserLinks->listManagementAccountUserLinks($accountId);
+            return $account;
         } catch (\Google_Service_Exception $e) {
             print 'There was an Analytics API service error '
                 . $e->getCode() . ':' . $e->getMessage();
@@ -71,14 +81,15 @@ class Google
      *
      * @param start.
      * @param end.
+     * @param viewId.
      * @return The Google Reporting API V4 response.
      */
 
-    function getReport($start, $end)
+    function getReport($start, $end, $viewId)
     {
 
         // Replace with your view ID, for example XXXX.
-        $VIEW_ID = "179699466";
+//        $VIEW_ID = "179699466";
 
         // Create the DateRange object.
         $dateRange = new \Google_Service_AnalyticsReporting_DateRange();
@@ -119,7 +130,7 @@ class Google
 
         // Create the ReportRequest object.
         $request = new \Google_Service_AnalyticsReporting_ReportRequest();
-        $request->setViewId($VIEW_ID);
+        $request->setViewId($viewId);
         $request->setDateRanges($dateRange);
         $request->setDimensions(array($browser));
         $request->setMetrics(array($sessions1, $sessions2,
