@@ -6,6 +6,8 @@
  */
 
 namespace Application\Controller;
+use http\Exception\InvalidArgumentException;
+use mysql_xdevapi\Exception;
 use Zend\View\Model\JsonModel;
 use Zend\Mvc\Controller\AbstractRestfulController;
 use Zend\Db\Adapter\Driver\ResultInterface;
@@ -35,20 +37,25 @@ class GoogleController extends AbstractRestfulController
 
     public function get($id)
     {
-        $end = $this->params()->fromQuery('end');
+        try{
+            $end = $this->params()->fromQuery('end');
+            if($end == "" || $end == null){
+                http_response_code(400);
+                throw new \InvalidArgumentException('Param : end not Exist or Invalid');
+            }
+            $select = "select * from `analytics` where (`created_date` BETWEEN '{$id}' and '{$end}') order by `created_date` desc ";
+            $statement = $this->conn->createStatement($select);
+            $result = $statement->execute();
+            $data = $this->_transform($result);
+            http_response_code(200);
+            return new JsonModel([
+                'data' => $data
+            ]);
+        }catch (\Exception $e){
+            http_response_code(500);
+            throw new \Exception($e->getMessage());
+        }
 
-        $select = "select * from `analytics` where (`created_date` BETWEEN '{$id}' and '{$end}') order by `created_date` desc ";
-
-        $statement = $this->conn->createStatement($select);
-        $result = $statement->execute();
-        $data = $this->_transform($result);
-//        echo "<pre>";
-//        print_r($data);
-//        echo "</pre>";
-//        exit();
-        return new JsonModel([
-            'data' => $data
-        ]);
     }
 
     protected function _transform($result)

@@ -7,13 +7,17 @@
 
 namespace Application\Controller;
 
+use Application\Object\DataHeader;
+use Application\Object\DataLeft;
+use Application\Object\Data;
 use Zend\Mvc\Controller\AbstractActionController;
 use Analytics\Google;
 use Analytics\GoogleDriver;
 use Analytics\GoogleSheet;
 use Datetime;
 use Zend\View\Model\JsonModel;
-
+//include_once "../Object/DataHeader.php";
+//include_once "../Object/DataLeft.php";
 
 class IndexController extends AbstractActionController
 {
@@ -55,7 +59,8 @@ class IndexController extends AbstractActionController
         }
     }
 
-    public function accountAction(){
+    public function accountAction()
+    {
         $client = new Google();
         $account = $client->getAccount();
 
@@ -71,15 +76,15 @@ class IndexController extends AbstractActionController
     }
 
 
-    public function getDataAction(){
-        try{
+    public function getDataAction()
+    {
+        try {
             $select = "select * from account";
             $statement = $this->conn->createStatement($select);
 
             $result = $statement->execute();
             $data = [];
-            while($result->valid())
-            {
+            while ($result->valid()) {
                 $data[] = $result->current();
                 $result->next();
             }
@@ -87,14 +92,14 @@ class IndexController extends AbstractActionController
             $start = $this->params()->fromQuery('start');
             $end = $this->params()->fromQuery('end');
             $init = new Google();
-            foreach ($data as $item){
-                $response = $init->getReport($start, $end,$item['view_id']);
+            foreach ($data as $item) {
+                $response = $init->getReport($start, $end, $item['view_id']);
                 $dataAnalytics[] = $init->printResults($response);
             }
             return new JsonModel([
                 'data' => $dataAnalytics
             ]);
-        }catch (\Exception $e){
+        } catch (\Exception $e) {
             echo "<pre>";
             print_r($e->getMessage());
             echo "</pre>";
@@ -103,32 +108,54 @@ class IndexController extends AbstractActionController
 
     }
 
-    public function getDataAnalyticByViewIdAction(){
-        try{
-            $userId = $this->params()->fromQuery('userId');
-            $start = $this->params()->fromQuery('start');
-            $end = $this->params()->fromQuery('end');
+    public function dataAction(){
+        $method = $this->getRequest()->getMethod();
+        switch ($method)
+        {
+            case 'POST':
+                return $this->accountAction();
+                break;
+            case 'GET':
+                $userId = $this->params()->fromQuery('userId');
+                $start = $this->params()->fromQuery('start');
+                $end = $this->params()->fromQuery('end');
+                return $this->getDataAnalyticByViewIdAction($userId,$start,$end);
+                break;
+            case 'PUT':
+                // Update peter user
+                break;
+            case 'DELETE':
+                // Delete peter user
+                break;
+        }
+    }
+
+    public function getDataAnalyticByViewIdAction($userId,$start,$end)
+    {
+        try {
             $select = "select * from account where user_id = '{$userId}'";
             $statement = $this->conn->createStatement($select);
             $result = $statement->execute();
             $data = null;
-            while($result->valid())
-            {
+            while ($result->valid()) {
                 $data = $result->current();
                 $result->next();
             }
             $viewId = (string)$data['view_id'];
+            if($viewId=="" || $viewId==null){
+                http_response_code(400);
+                throw new \InvalidArgumentException("userId : {$userId} not exists");
+            }
             $init = new Google();
-            $response = $init->getReport($start,$end,$viewId);
+            $response = $init->getReport($start, $end, $viewId);
             $dataAnalytics = $init->printResults($response);
+            http_response_code(200);
             return new JsonModel([
                 'data' => $dataAnalytics
             ]);
-        }catch (\Exception $e){
-            echo "<pre>";
-            print_r($e->getMessage());
-            echo "</pre>";
-            exit();
+        } catch (\Exception $e) {
+            http_response_code(500);
+            throw new \Exception($e->getMessage());
         }
     }
 
@@ -163,7 +190,7 @@ class IndexController extends AbstractActionController
         $postFiles = $request->getFiles();
         $init = new GoogleDriver();
         $client = $init->getClient();
-        $init->uploadFile($client,$postFiles['files']['tmp_name'], $postFiles['files']['type'], "hoang");
+        $init->uploadFile($client, $postFiles['files']['tmp_name'], $postFiles['files']['type'], "hoang");
     }
 
     public function updateAction()
@@ -181,14 +208,14 @@ class IndexController extends AbstractActionController
         $cv = $_FILES['file']['tmp_name'];
 
         $note = $_POST['note'];
-        try{
+        try {
 //            $title = $this->params()->fromQuery('title');
             $title = "CV Interview";
             $init = new GoogleSheet();
             $client = $init->getClient();
-            $sheetId = $init->uploadSheet($client,$title);
-            $init->appendSheet($client,$sheetId,$ten,$email,$linkCV,$cv,$note);
-            echo ("<script>
+            $sheetId = $init->uploadSheet($client, $title);
+            $init->appendSheet($client, $sheetId, $ten, $email, $linkCV, $cv, $note);
+            echo("<script>
                         alert('Success');
                         setTimeout(
                             function() {
@@ -196,7 +223,7 @@ class IndexController extends AbstractActionController
                             }, 1000
                         )
                    </script>");
-        } catch (\Exception $e){
+        } catch (\Exception $e) {
             throw new $e->getMessage();
         }
 
@@ -204,7 +231,7 @@ class IndexController extends AbstractActionController
 
     public function appendAction()
     {
-        try{
+        try {
             $ten = $_POST['ten'];
             $email = $_POST['email'];
             $linkCV = $_POST['link_cv'];
@@ -213,8 +240,8 @@ class IndexController extends AbstractActionController
             $sheetId = $this->params()->fromQuery('sheetId');
             $init = new GoogleSheet();
             $client = $init->getClient();
-            $init->appendSheet($client,$sheetId,$ten,$email,$linkCV,$cv,$note);
-        } catch (\Exception $e){
+            $init->appendSheet($client, $sheetId, $ten, $email, $linkCV, $cv, $note);
+        } catch (\Exception $e) {
             throw new $e->getMessage();
         }
 
@@ -239,17 +266,95 @@ class IndexController extends AbstractActionController
         return $rows;
     }
 
-    protected function fetchData($result){
-        if($result->count() > 0) {
-            $returnArr = array();
-            while ($result->valid()) {
-                $returnArr[] = $result->current();
-                $result->next();
+//    protected function fetchData($result)
+//    {
+//        if ($result->count() > 0) {
+//            $returnArr = array();
+//            while ($result->valid()) {
+//                $returnArr[] = $result->current();
+//                $result->next();
+//            }
+//            if (count($returnArr) > 0) {
+//                return $returnArr;
+//            }
+//        }
+//        return [];
+//    }
+
+    /**
+     * @return JsonModel
+     */
+    public function getDataExcelAction(){
+        $result = [];
+        try{
+            $inputFileName =$_FILES['file']['tmp_name'];
+            try {
+                $inputFileType = \PHPExcel_IOFactory::identify($inputFileName);
+                $objReader = \PHPExcel_IOFactory::createReader($inputFileType);
+                $objPHPExcel = $objReader->load($inputFileName);
+            } catch(\Exception $e) {
+                die('Error loading file "'.pathinfo($inputFileName,PATHINFO_BASENAME).'": '.$e->getMessage());
             }
-            if(count($returnArr) > 0) {
-                return $returnArr;
+            $sheet = $objPHPExcel->getSheet(0);
+            $highestRow = $sheet->getHighestRow();
+            $highestColumn = $sheet->getHighestColumn();
+            $rowData =[];
+            for ($row = 1; $row <= $highestRow; $row++){
+                //  Read a row of data into an array
+                $rowData[] = $sheet->rangeToArray('A' . $row . ':' . $highestColumn . $row,
+                    NULL,
+                    TRUE,
+                    FALSE);
+                //  Insert row data array into your database of choice here
             }
+            unset($rowData[0]);
+            $header =[];
+            $left = [];
+
+            foreach ($rowData as $data){
+
+                if($data[0][7]==1){
+                    $item = [];
+                    $item['setMenuId'] =$data[0][0];
+                    $item['setMenuParent']=$data[0][2];
+                    $item['setMenuName']=$data[0][3];
+                    $item['setMenuOrder']=$data[0][4];
+                    $item['setMenuPos']=$data[0][7];
+                    $item['setIsPublic']=$data[0][11];
+                    $item['setUrl']=$data[0][8];
+                    $item['setIconClass']=$data[0][13];
+                    $item['setModule']=$data[0][15];
+                    $item['setMenuProperties']=$data[0][16];
+                    $item['setState']=$data[0][17];
+                    $item['setPath']=$data[0][9];
+                    $header[] = $item;
+                } else {
+                    $item = [];
+                    $item['setMenuId']=$data[0][0];
+                    $item['setMenuParent']=$data[0][2];
+                    $item['setMenuName']=$data[0][3];
+                    $item['setMenuOrder']=$data[0][4];
+                    $item['setMenuPos']=$data[0][7];
+                    $item['setIsPublic']=$data[0][11];
+                    $item['setUrl']=$data[0][8];
+                    $item['setIconClass']=$data[0][13];
+                    $item['setModule']=$data[0][15];
+                    $item['setMenuProperties']=$data[0][16];
+                    $left[] = $item;
+                }
+            }
+            $result['header'] = $header;
+            $result['left'] = $left;
+            $message = 'success';
+            $code = 200;
+        } catch (\Exception $e){
+            $code = 500;
+            $message = $e->getMessage();
         }
-        return [];
+        return new JsonModel([
+            'code' => $code,
+            'message' => $message,
+            'data' => $result
+        ]);
     }
 }

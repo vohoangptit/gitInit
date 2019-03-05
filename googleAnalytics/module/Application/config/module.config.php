@@ -42,12 +42,22 @@ return [
                     ],
                 ],
             ],
+            'analytic' => [
+                'type'    => Segment::class,
+                'options' => [
+                    'route'    => '/application/analytic[/:id]',
+                    'defaults' => [
+                        'controller' => Controller\AnalyticController::class,
+                    ],
+                ],
+            ],
         ],
     ],
     'controllers' => [
         'factories' => [
             Controller\IndexController::class => InvokableFactory::class,
             Controller\GoogleController::class => InvokableFactory::class,
+            Controller\AnalyticController::class => InvokableFactory::class,
         ],
     ],
     'view_manager' => array(
