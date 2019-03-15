@@ -1,48 +1,14 @@
 <?php
 namespace Application\Object;
 
-class Data {
-    private $header;
-    private $left;
+ final class Data {
 
-    /**
-     * Data constructor.
-     * @param $header
-     */
-    public function __construct()
-    {
-    }
+    static $source = 'ga:source';
 
-    /**
-     * @return mixed
-     */
-    public function getHeader()
-    {
-        return $this->header;
-    }
+    static $campaign = 'ga:campaign';
 
-    /**
-     * @param mixed $header
-     */
-    public function setHeader($header)
-    {
-        $this->header = $header;
-    }
+    static $sourceMedium = 'ga:sourceMedium';
 
-    /**
-     * @return mixed
-     */
-    public function getLeft()
-    {
-        return $this->left;
-    }
-
-    /**
-     * @param mixed $left
-     */
-    public function setLeft($left)
-    {
-        $this->left = $left;
-    }
+    static $medium = 'ga:medium';
 
 }

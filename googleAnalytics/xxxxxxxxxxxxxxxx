@@ -1,5 +1,6 @@
 FROM php:7.0-apache
 MAINTAINER Hoang<vohoangptit@gmail.com>
+
 EXPOSE 8080
 RUN apt-get update \
  && apt-get install -y git zlib1g-dev \
@@ -9,8 +10,9 @@ RUN apt-get update \
  && mv /var/www/html /var/www/public \
  && curl -sS https://getcomposer.org/installer \
   | php -- --install-dir=/usr/local/bin --filename=composer
-
-WORKDIR /var/www
 ENV COMPOSER_ALLOW_SUPERUSER=1
-CMD apachectl -D FOREGROUND
+	
 
+ADD entrypoint.sh /var/www
+RUN chmod +x /var/www
+ENTRYPOINT ["entrypoint"]

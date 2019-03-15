@@ -6,8 +6,6 @@
  */
 
 namespace Application\Controller;
-use http\Exception\InvalidArgumentException;
-use mysql_xdevapi\Exception;
 use Zend\View\Model\JsonModel;
 use Zend\Mvc\Controller\AbstractRestfulController;
 use Zend\Db\Adapter\Driver\ResultInterface;

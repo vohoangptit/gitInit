@@ -14,19 +14,14 @@ $client = new Google_Client([
 ]);
 $client->setAuthConfig(__DIR__ . '/../client_secrets.json');
 $client->setRedirectUri('http://' . $_SERVER['HTTP_HOST'] . '/oauth2callback.php');
-$client->addScope([
-//    \Google_Service_Analytics::ANALYTICS_MANAGE_USERS,
-//    \Google_Service_Analytics::ANALYTICS_MANAGE_USERS_READONLY,
-    \Google_Service_Analytics::ANALYTICS_EDIT,
-    \Google_Service_Analytics::ANALYTICS_READONLY
-]);
+$client->addScope(Google_Service_Analytics::ANALYTICS_READONLY);
 
 // Handle authorization flow from the server.
 if (!isset($_GET['code'])) {
     $auth_url = $client->createAuthUrl();
     header('Location: ' . filter_var($auth_url, FILTER_SANITIZE_URL));
 } else {
-    $client->fetchAccessTokenWithAuthCode($_GET['code']);
+    $data = $client->fetchAccessTokenWithAuthCode($_GET['code']);
     $_SESSION['refresh_token'] = $client->getRefreshToken();
     $_SESSION['access_token'] = $client->getAccessToken();
     $redirect_uri = 'http://' . $_SERVER['HTTP_HOST'] . '/';

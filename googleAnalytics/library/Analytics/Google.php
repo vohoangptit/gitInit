@@ -17,12 +17,7 @@ class Google
     {
         $client = new \Google_Client();
         $client->setAuthConfig(__DIR__ . '/../../client_secrets.json');
-        $client->addScope([
-//            \Google_Service_Analytics::ANALYTICS_MANAGE_USERS,
-//            \Google_Service_Analytics::ANALYTICS_MANAGE_USERS_READONLY,
-            \Google_Service_Analytics::ANALYTICS_EDIT,
-            \Google_Service_Analytics::ANALYTICS_READONLY
-        ]);
+        $client->addScope(\Google_Service_Analytics::ANALYTICS_READONLY);
         try {
             if (isset($_SESSION['access_token']) && $_SESSION['access_token']) {
                 // Set the access token on the client.
@@ -30,7 +25,7 @@ class Google
 
                 // Create an authorized analytics service object.
                 $this->analytics = new \Google_Service_AnalyticsReporting($client);
-                $this->client = new \Google_Service_Analytics($client);
+//                $this->client = new \Google_Service_Analytics($client);
             } else {
                 $redirect_uri = 'http://' . $_SERVER['HTTP_HOST'] . '/oauth2callback.php';
                 header('Location: ' . filter_var($redirect_uri, FILTER_SANITIZE_URL));
@@ -87,7 +82,8 @@ class Google
 
     function getReport($start, $end, $viewId)
     {
-
+/*        Dimension : ga:medium, ga:source, ga:campaign, ga:sourceMedium
+*/
         // Replace with your view ID, for example XXXX.
 //        $VIEW_ID = "179699466";
 
@@ -96,8 +92,13 @@ class Google
         $dateRange->setStartDate($start);
         $dateRange->setEndDate($end);
 
+        //create dimension
         $browser = new \Google_Service_AnalyticsReporting_Dimension();
-        $browser->setName("ga:sourceMedium");
+        $browser->setName('ga:source');
+        $browser1 = new \Google_Service_AnalyticsReporting_Dimension();
+        $browser1->setName('ga:medium');
+        $browser2 = new \Google_Service_AnalyticsReporting_Dimension();
+        $browser2->setName('ga:campaign');
 
         // Create the Metrics object.
         $sessions1 = new \Google_Service_AnalyticsReporting_Metric();
@@ -132,7 +133,7 @@ class Google
         $request = new \Google_Service_AnalyticsReporting_ReportRequest();
         $request->setViewId($viewId);
         $request->setDateRanges($dateRange);
-        $request->setDimensions(array($browser));
+        $request->setDimensions(array($browser,$browser1,$browser2));
         $request->setMetrics(array($sessions1, $sessions2,
             $sessions3, $sessions4, $sessions5, $sessions6,
             $sessions7, $sessions8, $sessions9));
@@ -146,9 +147,7 @@ class Google
 
     function printResults($reports)
     {
-
         $results = array();
-
         for ($reportIndex = 0; $reportIndex < count($reports); $reportIndex++) {
             $report = $reports[$reportIndex];
             $header = $report->getColumnHeader();
@@ -160,21 +159,18 @@ class Google
                 $row = $rows[$rowIndex];
                 $dimensions = $row->getDimensions();
                 $metrics = $row->getMetrics();
-                for ($i = 0; $i < count($dimensionHeaders) && $i < count($dimensions); $i++) {
-//                print($dimensionHeaders[$i] . ": " . $dimensions[$i] . "\n");
-                }
-
                 for ($j = 0; $j < count($metrics); $j++) {
 
                     $values = $metrics[$j]->getValues();
                     for ($k = 0; $k < count($values); $k++) {
                         $entry = $metricHeaders[$k];
+                        $data[$dimensionHeaders[0]] = $dimensions[0];
+                        $data[$dimensionHeaders[1]] = $dimensions[1];
+                        $data[$dimensionHeaders[2]] = $dimensions[2];
                         $data[$entry->getName()] = $values[$k];
-//                    print($entry->getName() . ": " . $values[$k] . "\n");
                     }
                 }
-
-                $results[$dimensions[$reportIndex]] = $data;
+                $results[] = $data;
             }
         }
         return $results;

@@ -6,11 +6,13 @@
  */
 
 namespace Application\Controller;
+
 use Zend\View\Model\JsonModel;
 use Zend\Mvc\Controller\AbstractRestfulController;
 use Zend\Db\Adapter\Driver\ResultInterface;
 use Zend\Db\ResultSet\ResultSet;
 use Analytics\Google;
+use Elasticsearch\ClientBuilder;
 
 
 class AnalyticController extends AbstractRestfulController
@@ -26,7 +28,7 @@ class AnalyticController extends AbstractRestfulController
     {
         $this->conn = new \Zend\Db\Adapter\Adapter([
             'driver' => 'Mysqli',
-            'database' => 'post',
+            'database' => 'analytics',
             'username' => 'root',
             'password' => '',
             'hostname' => 'localhost',
@@ -34,16 +36,30 @@ class AnalyticController extends AbstractRestfulController
         ]);
     }
 
-    public function getList()
+    public function get($id)
     {
-        $type = $this->params()->fromQuery('type');
-        switch ($type)
-        {
+        switch ($id) {
+            case '1':
+                return $this->mappingIndex();
+                break;
             case 'getDataAnalytic':
+                echo "das";
+                exit();
                 $userId = $this->params()->fromQuery('userId');
-                $start = $this->params()->fromQuery('start');
-                $end = $this->params()->fromQuery('end');
-                return $this->getDataAnalyticByViewIdAction($userId,$start,$end);
+                $date = $this->params()->fromQuery('date');
+                return $this->getDataAnalyticByViewIdAction($userId, $date);
+                break;
+            case 'dimension':
+                $type = $this->params()->fromQuery('dimensionType');
+                return $this->isSearchAction($type);
+                break;
+            case 'query':
+                $data = $this->params()->fromQuery('data');
+                return $this->startSearchAction($data);
+                break;
+            case 'contain':
+                $data = $this->params()->fromQuery('data');
+                return $this->containSearchAction($data);
                 break;
         }
     }
@@ -51,8 +67,7 @@ class AnalyticController extends AbstractRestfulController
     public function create($data)
     {
         $type = $this->params()->fromQuery('type');
-        switch ($type)
-        {
+        switch ($type) {
             case 'createShareAccount':
                 return $this->accountAction();
         }
@@ -74,11 +89,11 @@ class AnalyticController extends AbstractRestfulController
         }
         return new JsonModel([
                 'data' => true
-        ]
+            ]
         );
     }
 
-    public function getDataAnalyticByViewIdAction($userId,$start,$end)
+    public function getDataAnalyticByViewIdAction($userId, $date)
     {
         try {
             $select = "select * from account where user_id = '{$userId}'";
@@ -90,13 +105,14 @@ class AnalyticController extends AbstractRestfulController
                 $result->next();
             }
             $viewId = (string)$data['view_id'];
-            if($viewId=="" || $viewId==null){
+            if ($viewId == "" || $viewId == null) {
                 http_response_code(400);
                 throw new \InvalidArgumentException("userId : {$userId} not exists");
             }
             $init = new Google();
-            $response = $init->getReport($start, $end, $viewId);
+            $response = $init->getReport($date, $date, $viewId);
             $dataAnalytics = $init->printResults($response);
+            $this->saveDataAndPutElasticSearch($userId, $viewId, $date, $dataAnalytics);
             http_response_code(200);
             return new JsonModel([
                 'data' => $dataAnalytics
@@ -104,6 +120,168 @@ class AnalyticController extends AbstractRestfulController
         } catch (\Exception $e) {
             http_response_code(500);
             throw new \Exception($e->getMessage());
+        }
+    }
+
+    public function mappingIndex()
+    {
+        $client = ClientBuilder::create()->build();
+//        $client->indices()->delete(['index' => 'utm_data_1']);
+        $params = [
+            'index' => 'utm_data_1',
+            'body' => [
+                'settings' => [
+                    'number_of_shards' => 3,
+                    'number_of_replicas' => 2,
+                ],
+                'mappings' => [
+                    'data' => [
+                        'properties' => [
+                            'users' => [
+                                'type' => 'integer',
+                            ],
+                            'new_users' => [
+                                'type' => 'integer'
+                            ],
+                            'session' => [
+                                'type' => 'integer',
+                            ],
+                            'bounce_rate' => [
+                                'type' => 'double'
+                            ],
+                            'pages_session' => [
+                                'type' => 'double',
+                            ],
+                            'avg_session_duration' => [
+                                'type' => 'double'
+                            ],
+                            'ecommerce_conversion_rate' => [
+                                'type' => 'double',
+                            ],
+                            'transactions' => [
+                                'type' => 'integer'
+                            ],
+                            'revenue' => [
+                                'type' => 'double'
+                            ],
+                            'created_date' => [
+                                'type' => 'keyword',
+                            ],
+                            'user_id' => [
+                                'type' => 'keyword',
+                            ],
+                            'view_id' => [
+                                'type' => 'integer',
+                            ],
+                            'source' => [
+                                'type' => 'keyword',
+//                                'analyzer' => 'standard'
+                            ],
+                            'medium' => [
+                                'type' => 'keyword',
+//                                'analyzer' => 'standard'
+                            ],
+                            'campaign' => [
+                                'type' => 'keyword',
+//                                'analyzer' => 'standard'
+                            ]
+                        ]
+                    ]
+                ],
+            ]
+        ];
+        try {
+            $response = $client->indices()->create($params);
+        } catch (\Exception $e) {
+            print_r($e->getMessage());
+            die();
+        }
+        echo "<pre>";
+        print_r($response);
+        echo "</pre>";
+        exit();
+    }
+
+    public function saveDataAndPutElasticSearch($userId, $viewId, $date, $result)
+    {
+        try {
+            foreach ($result as $item) {
+                $sql = "insert into analytics(
+                    users,
+                    new_users,
+                    session,
+                    bounce_rate,
+                    pages_session,
+                    avg_session_duration,
+                    ecommerce_conversion_rate,
+                    transactions,
+                    revenue,
+                    created_date,
+                    user_id,
+                    view_id,
+                    source,
+                    medium,
+                    campaign) 
+                    values(
+                    {$item['ga:users']}
+                    ,{$item['ga:newUsers']}
+                    ,{$item['ga:sessions']}
+                    ,{$item['ga:bounceRate']}
+                    ,{$item['ga:pageviewsPerSession']}
+                    ,{$item['ga:avgSessionDuration']}
+                    ,{$item['ga:transactionsPerSession']}
+                    ,{$item['ga:transactions']}
+                    ,{$item['ga:transactionRevenue']}
+                    ,'{$date}'
+                    ,'$userId'
+                    ,$viewId
+                    ,'{$item['ga:source']}'
+                    ,'{$item['ga:medium']}'
+                    ,'{$item['ga:campaign']}') 
+                    on duplicate key update 
+                    users = {$item['ga:users']}
+                    ,new_users ={$item['ga:newUsers']}
+                    ,session={$item['ga:sessions']}
+                    ,bounce_rate={$item['ga:bounceRate']}
+                    ,pages_session={$item['ga:pageviewsPerSession']}
+                    ,avg_session_duration={$item['ga:avgSessionDuration']}
+                    ,ecommerce_conversion_rate={$item['ga:transactionsPerSession']}
+                    ,transactions={$item['ga:transactions']}
+                    ,revenue={$item['ga:transactionRevenue']}";
+                $statement = $this->conn->createStatement($sql);
+                $statement->execute();
+            }
+            $client = ClientBuilder::create()->build();
+
+            foreach ($result as $item) {
+                $params = [
+                    'index' => 'utm_data_1',
+                    'type' => 'data',
+                    'body' => [
+                        'users' => $item['ga:users'],
+                        'new_users' => $item['ga:newUsers'],
+                        'session' => $item['ga:sessions'],
+                        'bounce_rate' => $item['ga:bounceRate'],
+                        'pages_session' => $item['ga:pageviewsPerSession'],
+                        'avg_session_duration' => $item['ga:avgSessionDuration'],
+                        'ecommerce_conversion_rate' => $item['ga:transactionsPerSession'],
+                        'transactions' => $item['ga:transactions'],
+                        'revenue' => $item['ga:transactionRevenue'],
+                        'created_date' => $date,
+                        'user_id' => $userId,
+                        'view_id' => $viewId,
+                        'source' => $item['ga:source'],
+                        'medium' => $item['ga:medium'],
+                        'campaign' => $item['ga:campaign']
+                    ]
+                ];
+                $client->index($params);
+            }
+        } catch (\Exception $ex) {
+            echo "<pre>";
+            print_r($ex->getMessage());
+            echo "</pre>";
+            exit();
         }
     }
 
@@ -124,5 +302,102 @@ class AnalyticController extends AbstractRestfulController
             unset($resultSet);
         }
         return $rows;
+    }
+
+    public function isSearchAction($data)
+    {
+        try {
+            $client = ClientBuilder::create()->build();
+            $params = [
+                'index' => 'utm_data_1',
+                'type' => 'data',
+                'body' => [
+                    'query' => [
+                        'bool' => [
+                            'should' => [
+                                ['match' => ['source' => $data]],
+                                ['match' => ['medium' => $data]],
+                                ['match' => ['campaign' => $data]],
+                            ]
+
+                        ]
+                    ]
+                ]
+            ];
+
+            $results = $client->search($params);
+        } catch (\Exception $ex) {
+            echo "<pre>";
+            print_r($ex->getMessage());
+            echo "</pre>";
+            exit();
+        }
+        return new JsonModel([
+            'data' => $results['hits']['hits']
+        ]);
+    }
+
+    public function startSearchAction($data)
+    {
+        try {
+            $client = ClientBuilder::create()->build();
+            $params = [
+                'index' => 'utm_data_1',
+                'type' => 'data',
+                'body' => [
+                    'query' => [
+                        'bool' => [
+                            'should' => [
+                                ['prefix' => ['source' => $data]],
+                                ['prefix' => ['medium' => $data]],
+                                ['prefix' => ['campaign' => $data]],
+                            ]
+                        ]
+                    ]
+                ]
+            ];
+
+            $results = $client->search($params);
+        } catch (\Exception $ex) {
+            echo "<pre>";
+            print_r($ex->getMessage());
+            echo "</pre>";
+            exit();
+        }
+        return new JsonModel([
+            'data' => $results['hits']['hits']
+        ]);
+    }
+
+    public function containSearchAction($data)
+    {
+        try {
+            $client = ClientBuilder::create()->build();
+            $params = [
+                'index' => 'utm_data_1',
+                'type' => 'data',
+                'body' => [
+                    'query' => [
+                        'bool' => [
+                            'should' => [
+                                ['wildcard' => ['medium' => "*" . $data . "*",]],
+                                ['wildcard' => ['source' => "*" . $data . "*"]],
+                                ['wildcard' => ['campaign' => "*" . $data . "*"]]
+                            ]
+                        ]
+
+                    ]
+                ]
+            ];
+            $results = $client->search($params);
+        } catch (\Exception $ex) {
+            echo "<pre>";
+            print_r($ex->getMessage());
+            echo "</pre>";
+            exit();
+        }
+        return new JsonModel([
+            'data' => $results['hits']['hits']
+        ]);
     }
 }

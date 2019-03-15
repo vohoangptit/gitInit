@@ -7,17 +7,12 @@
 
 namespace Application\Controller;
 
-use Application\Object\DataHeader;
-use Application\Object\DataLeft;
-use Application\Object\Data;
 use Zend\Mvc\Controller\AbstractActionController;
 use Analytics\Google;
 use Analytics\GoogleDriver;
 use Analytics\GoogleSheet;
 use Datetime;
 use Zend\View\Model\JsonModel;
-//include_once "../Object/DataHeader.php";
-//include_once "../Object/DataLeft.php";
 
 class IndexController extends AbstractActionController
 {
@@ -40,8 +35,10 @@ class IndexController extends AbstractActionController
         ]);
     }
 
+    // not use bc old func -> replace by AnalyticController - func
     public function indexAction()
     {
+
         $date = $this->params()->fromQuery('date');
         $init = new Google();
         $response = $init->getReport($date, $date);
@@ -108,10 +105,10 @@ class IndexController extends AbstractActionController
 
     }
 
-    public function dataAction(){
+    public function dataAction()
+    {
         $method = $this->getRequest()->getMethod();
-        switch ($method)
-        {
+        switch ($method) {
             case 'POST':
                 return $this->accountAction();
                 break;
@@ -119,7 +116,7 @@ class IndexController extends AbstractActionController
                 $userId = $this->params()->fromQuery('userId');
                 $start = $this->params()->fromQuery('start');
                 $end = $this->params()->fromQuery('end');
-                return $this->getDataAnalyticByViewIdAction($userId,$start,$end);
+                return $this->getDataAnalyticByViewIdAction($userId, $start, $end);
                 break;
             case 'PUT':
                 // Update peter user
@@ -130,7 +127,7 @@ class IndexController extends AbstractActionController
         }
     }
 
-    public function getDataAnalyticByViewIdAction($userId,$start,$end)
+    public function getDataAnalyticByViewIdAction($userId, $start, $end)
     {
         try {
             $select = "select * from account where user_id = '{$userId}'";
@@ -142,7 +139,7 @@ class IndexController extends AbstractActionController
                 $result->next();
             }
             $viewId = (string)$data['view_id'];
-            if($viewId=="" || $viewId==null){
+            if ($viewId == "" || $viewId == null) {
                 http_response_code(400);
                 throw new \InvalidArgumentException("userId : {$userId} not exists");
             }
@@ -284,22 +281,23 @@ class IndexController extends AbstractActionController
     /**
      * @return JsonModel
      */
-    public function getDataExcelAction(){
+    public function getDataExcelAction()
+    {
         $result = [];
-        try{
-            $inputFileName =$_FILES['file']['tmp_name'];
+        try {
+            $inputFileName = $_FILES['file']['tmp_name'];
             try {
                 $inputFileType = \PHPExcel_IOFactory::identify($inputFileName);
                 $objReader = \PHPExcel_IOFactory::createReader($inputFileType);
                 $objPHPExcel = $objReader->load($inputFileName);
-            } catch(\Exception $e) {
-                die('Error loading file "'.pathinfo($inputFileName,PATHINFO_BASENAME).'": '.$e->getMessage());
+            } catch (\Exception $e) {
+                die('Error loading file "' . pathinfo($inputFileName, PATHINFO_BASENAME) . '": ' . $e->getMessage());
             }
             $sheet = $objPHPExcel->getSheet(0);
             $highestRow = $sheet->getHighestRow();
             $highestColumn = $sheet->getHighestColumn();
-            $rowData =[];
-            for ($row = 1; $row <= $highestRow; $row++){
+            $rowData = [];
+            for ($row = 1; $row <= $highestRow; $row++) {
                 //  Read a row of data into an array
                 $rowData[] = $sheet->rangeToArray('A' . $row . ':' . $highestColumn . $row,
                     NULL,
@@ -308,46 +306,74 @@ class IndexController extends AbstractActionController
                 //  Insert row data array into your database of choice here
             }
             unset($rowData[0]);
-            $header =[];
+            // list header item
+            $header = [];
+            // list all left menu
             $left = [];
-
-            foreach ($rowData as $data){
-
-                if($data[0][7]==1){
+            foreach ($rowData as $data) {
+                if ($data[0][7] == 1) {
+                    //item header
                     $item = [];
-                    $item['setMenuId'] =$data[0][0];
-                    $item['setMenuParent']=$data[0][2];
-                    $item['setMenuName']=$data[0][3];
-                    $item['setMenuOrder']=$data[0][4];
-                    $item['setMenuPos']=$data[0][7];
-                    $item['setIsPublic']=$data[0][11];
-                    $item['setUrl']=$data[0][8];
-                    $item['setIconClass']=$data[0][13];
-                    $item['setModule']=$data[0][15];
-                    $item['setMenuProperties']=$data[0][16];
-                    $item['setState']=$data[0][17];
-                    $item['setPath']=$data[0][9];
+                    $item['menu_id'] = $data[0][0];
+                    $item['menu_parent'] = $data[0][2];
+                    $item['menu_name'] = $data[0][3];
+                    $item['menu_order'] = $data[0][4];
+                    $item['menu_pos'] = $data[0][7];
+                    $item['is_public'] = $data[0][11];
+                    $item['url'] = $data[0][8];
+                    $item['icon_class'] = $data[0][13];
+                    $item['module'] = $data[0][15];
+                    $item['menu_properties'] = $data[0][16];
+                    $item['state'] = $data[0][17];
+                    $item['path'] = $data[0][9];
                     $header[] = $item;
                 } else {
                     $item = [];
-                    $item['setMenuId']=$data[0][0];
-                    $item['setMenuParent']=$data[0][2];
-                    $item['setMenuName']=$data[0][3];
-                    $item['setMenuOrder']=$data[0][4];
-                    $item['setMenuPos']=$data[0][7];
-                    $item['setIsPublic']=$data[0][11];
-                    $item['setUrl']=$data[0][8];
-                    $item['setIconClass']=$data[0][13];
-                    $item['setModule']=$data[0][15];
-                    $item['setMenuProperties']=$data[0][16];
+                    $item['menu_id'] = $data[0][0];
+                    $item['menu_parent'] = $data[0][2];
+                    $item['menu_name'] = $data[0][3];
+                    $item['menu_order'] = $data[0][4];
+                    $item['menu_pos'] = $data[0][7];
+                    $item['is_public'] = $data[0][11];
+                    $item['url'] = $data[0][8];
+                    $item['icon_class'] = $data[0][13];
+                    $item['module'] = $data[0][15];
+                    $item['menu_properties'] = $data[0][16];
                     $left[] = $item;
                 }
             }
+
+            $childObject = [];
+            foreach ($left as $item){
+                $data = $this->createListParentChild($left, $item['menu_id']);
+                if(count($data)>0){
+                    $item['child'] = $data;
+                }
+                $childObject[] = $item;
+            }
+            $resultLeft = [];
+            foreach ($header as $value) {
+                $row = [];
+                foreach ($childObject as $item) {
+                    if ($value['menu_id'] == $item['menu_parent']) {
+                        $row[] = $item;
+                    }
+                }
+                if (sizeof($row) > 0) {
+                    usort($row, function($a, $b) {
+                        return $a['menu_order'] - $b['menu_order'];
+                    });
+                    $resultLeft[$value['state']] = array($row);
+                }
+            }
+            usort($header, function($a, $b) {
+                return $a['menu_order'] - $b['menu_order'];
+            });
             $result['header'] = $header;
-            $result['left'] = $left;
+            $result['left'] = $resultLeft;
             $message = 'success';
             $code = 200;
-        } catch (\Exception $e){
+        } catch (\Exception $e) {
             $code = 500;
             $message = $e->getMessage();
         }
@@ -356,5 +382,49 @@ class IndexController extends AbstractActionController
             'message' => $message,
             'data' => $result
         ]);
+    }
+
+//    function createMenuLeft($left, $menu_id)
+//    {
+//        $child = array();
+//        for($i = 0; $i<sizeof($left)-1; $i++){
+//
+//            if($left[$i]['menu_parent']==$menu_id){
+//                $object = $this->createMenuLeft($left, $left[$i]['menu_id']);
+//                if(sizeof($child[$i]['child'])>0){
+//                    $child[$i]['child'] = $object;
+//                }
+//                array_push( $child,$left[$i]);
+//
+//            }
+//        }
+//        foreach ($left as $key =>$item) {
+//            if ($item['menu_parent'] == $menu_id) {
+//                array_push($child,$item);
+//                echo "<pre>";
+//                print_r($child);
+//                echo "</pre>";
+//                exit();
+//                $item['child'] = $this->createMenuLeft($left, $item['menu_id']);
+//                if(sizeof($item['child'])>0){
+//                }
+//            }
+//        }
+//        return $child;
+//    }
+
+    private function createListParentChild($list, $parent){
+        $tempList = array();
+        for($i = 0; $i < count($list); $i++){
+            $tempElement = $list[$i];
+            if($tempElement['menu_parent'] == $parent){
+                $tempChildElement = $this->createListParentChild($list, $tempElement['menu_id']);
+                if(count($tempChildElement) > 0){
+                    $tempElement['child'] = $tempChildElement;
+                }
+                array_push($tempList, $tempElement);
+            }
+        }
+        return $tempList;
     }
 }
